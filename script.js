@@ -167,9 +167,12 @@ function startApp() {
     displayUserName.textContent = currentUser.name;
     if (currentUser.pfp) {
         userAvatar.style.backgroundImage = `url(${currentUser.pfp})`;
-        userAvatar.textContent = '';
+        userAvatar.style.color = 'transparent';
+        userAvatar.innerHTML = '';
     } else {
-        userAvatar.textContent = currentUser.initials;
+        userAvatar.style.backgroundImage = 'none';
+        userAvatar.style.color = 'white';
+        userAvatar.innerHTML = escapeHTML(currentUser.initials);
     }
     
     // First topic in their interests, or default to first topic overall
@@ -225,9 +228,10 @@ function renderInterestsForm() {
     topics.forEach(topic => {
         const label = document.createElement('label');
         label.className = 'interest-checkbox';
+        const iconHtml = topic.iconUrl ? `<img src="${topic.iconUrl}" class="custom-tag-icon">` : (topic.icon ? `<i class="fa-solid ${topic.icon}"></i>` : '');
         label.innerHTML = `
             <input type="checkbox" value="${topic.id}">
-            <span>${topic.name}</span>
+            <span>${iconHtml} ${topic.name}</span>
         `;
         interestsGrid.appendChild(label);
     });
@@ -282,26 +286,32 @@ function setupAuthListeners() {
             return;
         }
 
-        let pfpUrl = null;
         const file = studentPfpInput.files[0];
-        if (file) {
-            pfpUrl = URL.createObjectURL(file);
-        }
         
-        if (name && username) {
-            const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            currentUser = { 
-                name, 
-                username: username.startsWith('@') ? username : `@${username}`, 
-                contact, 
-                initials, 
-                interests: selectedInterests,
-                pfp: pfpUrl
-            };
-            
-            localStorage.setItem('nexusUser', JSON.stringify(currentUser));
-            showApp();
-            showToast('Login successful! Welcome to IIT KGP.', 'success');
+        const finalizeLogin = (pfpBase64) => {
+            if (name && username) {
+                const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                currentUser = { 
+                    name, 
+                    username: username.startsWith('@') ? username : `@${username}`, 
+                    contact, 
+                    initials, 
+                    interests: selectedInterests,
+                    pfp: pfpBase64
+                };
+                
+                localStorage.setItem('nexusUser', JSON.stringify(currentUser));
+                showApp();
+                showToast('Login successful! Welcome to IIT KGP.', 'success');
+            }
+        };
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => finalizeLogin(e.target.result);
+            reader.readAsDataURL(file);
+        } else {
+            finalizeLogin(null);
         }
     });
 
@@ -318,6 +328,10 @@ function setupAuthListeners() {
         localStorage.removeItem('nexusUser');
         currentUser = null;
         logoutOverlay.style.display = 'none';
+        loginForm.reset(); // Clear login form inputs (including PFP)
+        createChannelForm.reset();
+        editProfileForm.reset();
+        renderInterestsForm(); // Re-render interests to reflect any new channels or reset state
         showLogin();
     });
 }
@@ -379,10 +393,12 @@ function populateProfileData() {
     
     if (currentUser.pfp) {
         profilePageAvatar.style.backgroundImage = `url(${currentUser.pfp})`;
-        profilePageAvatar.textContent = '';
+        profilePageAvatar.style.color = 'transparent';
+        profilePageAvatar.innerHTML = '';
     } else {
         profilePageAvatar.style.backgroundImage = 'none';
-        profilePageAvatar.textContent = currentUser.initials;
+        profilePageAvatar.style.color = 'white';
+        profilePageAvatar.innerHTML = escapeHTML(currentUser.initials);
     }
 
     // Render interest tags
@@ -521,37 +537,47 @@ function setupEditProfileListeners() {
             return;
         }
 
-        let pfpUrl = currentUser.pfp; // Keep old PFP if no new one
         const file = editPfpInput.files[0];
-        if (file) {
-            pfpUrl = URL.createObjectURL(file);
-        }
+        
+        const finalizeEdit = (pfpBase64) => {
+            if (name && username) {
+                currentUser.name = name;
+                currentUser.username = username.startsWith('@') ? username : `@${username}`;
+                currentUser.contact = contact;
+                currentUser.initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                currentUser.interests = selectedInterests;
+                
+                // If a new file was uploaded use base64, otherwise keep old
+                currentUser.pfp = pfpBase64 ? pfpBase64 : currentUser.pfp;
 
-        if (name && username) {
-            currentUser.name = name;
-            currentUser.username = username.startsWith('@') ? username : `@${username}`;
-            currentUser.contact = contact;
-            currentUser.initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            currentUser.interests = selectedInterests;
-            currentUser.pfp = pfpUrl;
-
-            localStorage.setItem('nexusUser', JSON.stringify(currentUser));
-            
-            closeEditProfile();
-            
-            // Re-render the sidebar and profile view
-            displayUserName.textContent = currentUser.name;
-            if (currentUser.pfp) {
-                userAvatar.style.backgroundImage = `url(${currentUser.pfp})`;
-                userAvatar.textContent = '';
-            } else {
-                userAvatar.style.backgroundImage = 'none';
-                userAvatar.textContent = currentUser.initials;
+                localStorage.setItem('nexusUser', JSON.stringify(currentUser));
+                
+                closeEditProfile();
+                
+                // Re-render the sidebar and profile view
+                displayUserName.textContent = currentUser.name;
+                if (currentUser.pfp) {
+                    userAvatar.style.backgroundImage = `url(${currentUser.pfp})`;
+                    userAvatar.style.color = 'transparent';
+                    userAvatar.innerHTML = '';
+                } else {
+                    userAvatar.style.backgroundImage = 'none';
+                    userAvatar.style.color = 'white';
+                    userAvatar.innerHTML = escapeHTML(currentUser.initials);
+                }
+                
+                renderNavigation();
+                showProfileView(); 
+                showToast('Profile updated successfully!', 'success');
             }
-            
-            renderNavigation();
-            showProfileView(); 
-            showToast('Profile updated successfully!', 'success');
+        };
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => finalizeEdit(e.target.result);
+            reader.readAsDataURL(file);
+        } else {
+            finalizeEdit(null);
         }
     });
 }
