@@ -1,0 +1,153 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>Developer Guide: Building the IIT KGP Community Boards</title>
+<style>
+body { font-family: Arial, sans-serif; line-height: 1.6; }
+h1, h2, h3 { color: #333; }
+pre { background: #f4f4f4; padding: 10px; border-left: 4px solid #ccc; font-family: Consolas, monospace; }
+code { font-family: Consolas, monospace; background: #eee; padding: 2px 4px; border-radius: 3px; }
+blockquote { border-left: 4px solid #ffcc00; background: #fffdf0; padding: 10px; margin: 0; }
+</style>
+</head>
+<body>
+<h1>Developer Guide: Building the IIT KGP Community Boards</h1>
+<p>This document serves as a comprehensive feature list and a step-by-step developer guide. It explains the core features of the application and provides tutorials on how to implement them from scratch using purely HTML, CSS, and Vanilla JavaScript.</p>
+<hr>
+
+<h2>1. Core Architecture & Routing (Single Page Application)</h2>
+<p><strong>Feature</strong>: The app runs entirely on a single HTML page, swapping between the "Feed View", "Profile View", and "Explore View" seamlessly without reloading the browser.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>HTML</strong>: Wrap your views in <code>&lt;main&gt;</code> or <code>&lt;div&gt;</code> tags with distinct IDs (e.g., <code>#feed-view</code>, <code>#profile-view</code>, <code>#explore-view</code>). Set <code>style="display: none;"</code> on the views that shouldn't be visible initially.</li>
+<li><strong>JavaScript</strong>: Create simple routing functions that toggle the <code>display</code> properties.</li>
+</ul>
+<pre><code>function showProfileView() {
+    document.getElementById('feed-view').style.display = 'none';
+    document.getElementById('explore-view').style.display = 'none';
+    document.getElementById('profile-view').style.display = 'flex';
+}</code></pre>
+
+<h2>2. Dynamic Theming (Dark Mode)</h2>
+<p><strong>Feature</strong>: A toggle button switches the entire app between a light collegiate theme and a sleek dark mode, saving the preference locally.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>CSS</strong>: Define all your colors using CSS variables in the <code>:root</code> selector. Then, define a <code>.dark-mode</code> class on the <code>body</code> that overwrites those variables.</li>
+</ul>
+<pre><code>:root { --bg-main: #f4f6f8; --text: #1e293b; }
+body.dark-mode { --bg-main: #0b1120; --text: #f8fafc; }</code></pre>
+<ul>
+<li><strong>JavaScript</strong>: Toggle the class on the body and save the state to <code>localStorage</code>.</li>
+</ul>
+<pre><code>document.getElementById('btn-theme').addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+});</code></pre>
+
+<h2>3. Local Authentication & Onboarding</h2>
+<p><strong>Feature</strong>: A modal overlay captures user details (Name, Username, Profile Picture) before letting them access the app. It persists via <code>localStorage</code>.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>HTML</strong>: Create a full-screen fixed modal (<code>position: fixed; z-index: 1000</code>).</li>
+<li><strong>JavaScript</strong>: On form submission, package the input values into a JSON object and save it using <code>JSON.stringify()</code>.</li>
+</ul>
+<pre><code>const user = { name: "Aman", username: "@aman", interests: ["coding"] };
+localStorage.setItem('nexusUser', JSON.stringify(user));</code></pre>
+<ul><li>On page load, check if <code>localStorage.getItem('nexusUser')</code> exists to bypass login.</li></ul>
+
+<h2>4. Base64 Image Persistence (Custom Icons & PFPs)</h2>
+<p><strong>Feature</strong>: Users can upload custom images for their Profile Picture or Channel Icons, and they persist flawlessly across browser reloads.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>Concept</strong>: If you use <code>URL.createObjectURL(file)</code>, the URL breaks on page reload. Instead, read the image file as a Base64 data string.</li>
+<li><strong>JavaScript</strong>: Use the <code>FileReader</code> API.</li>
+</ul>
+<pre><code>const file = fileInput.files[0];
+const reader = new FileReader();
+reader.onload = (e) => {
+    const base64String = e.target.result; // Data URL
+    user.pfp = base64String;
+    localStorage.setItem('nexusUser', JSON.stringify(user));
+};
+reader.readAsDataURL(file);</code></pre>
+<blockquote><p><strong>TIP</strong>: Storing Base64 strings in <code>localStorage</code> works great for small images, but has a 5MB storage limit in most browsers.</p></blockquote>
+
+<h2>5. Dynamic Custom Channels & Ownership</h2>
+<p><strong>Feature</strong>: Users can dynamically create custom channels, assign them custom icons, and delete the ones they own.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>JavaScript Architecture</strong>: 
+  <ul>
+  <li>Store a base array of default <code>topics</code>.</li>
+  <li>On page load, fetch <code>customChannels</code> from <code>localStorage</code> and merge them: <code>topics = [...defaultTopics, ...customChannels]</code>.</li>
+  <li>When creating a channel, attach a <code>createdBy: currentUser.username</code> property to the channel object.</li>
+  </ul>
+</li>
+<li><strong>Deletion Logic</strong>: Filter out the channel ID from global topics, the <code>localStorage</code> custom channels array, and user <code>interests</code>, then rewrite <code>localStorage</code>.</li>
+</ul>
+
+<h2>6. Channel Discovery (Explore View)</h2>
+<p><strong>Feature</strong>: An overarching directory page displaying all channels, allowing users to effortlessly join or leave them.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>JavaScript Rendering</strong>: Loop through the <code>topics</code> array and generate DOM cards. Check <code>currentUser.interests.includes(topic.id)</code> to determine if the button should say "Join" or "Leave".</li>
+<li><strong>Toggle Logic</strong>: If leaving, filter the ID out of the interests array. If joining, <code>push()</code> the ID in.</li>
+</ul>
+
+<h2>7. Media Uploads & Native Audio Player</h2>
+<p><strong>Feature</strong>: Users can upload images, videos, and audio clips into the feed. The app automatically detects the file type and renders the appropriate HTML player.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>HTML</strong>: Use <code>&lt;input type="file" accept="image/*,video/*,audio/*"&gt;</code>.</li>
+<li><strong>JavaScript</strong>: Check the <code>file.type</code> property.</li>
+</ul>
+<pre><code>if (file.type.startsWith('audio/')) {
+    mediaDiv.innerHTML = `&lt;audio src="${url}" controls&gt;&lt;/audio&gt;`;
+} else if (file.type.startsWith('video/')) {
+    mediaDiv.innerHTML = `&lt;video src="${url}" controls&gt;&lt;/video&gt;`;
+}</code></pre>
+
+<h2>8. Toast Notification System</h2>
+<p><strong>Feature</strong>: Animated popups appear in the bottom corner to indicate successes or errors (e.g., "Channel Created!", "Please fill all fields").</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>CSS</strong>: Create a fixed container at <code>bottom: 24px; right: 24px;</code>. Define a <code>.toast</code> class with a slide-in animation.</li>
+<li><strong>JavaScript</strong>: Write a reusable function that creates a <code>div</code>, appends it to the container, and sets a timeout to remove it.</li>
+</ul>
+<pre><code>function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `&lt;span&gt;${message}&lt;/span&gt;`;
+    document.getElementById('toast-container').appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}</code></pre>
+
+<h2>9. Glassmorphism Aurora Background</h2>
+<p><strong>Feature</strong>: A glowing gradient orb smoothly follows the user's cursor behind the application, creating a premium, dynamic feel.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>CSS</strong>: Create a fixed, absolute-positioned <code>div</code> with a gradient background and a massive blur filter.</li>
+</ul>
+<pre><code>#blob {
+    position: absolute; width: 300px; height: 300px;
+    background: linear-gradient(135deg, red, gold);
+    filter: blur(100px); border-radius: 50%;
+}</code></pre>
+<ul><li><strong>JavaScript</strong>: Use <code>requestAnimationFrame</code> for buttery-smooth mouse tracking.</li></ul>
+
+<h2>10. Massive Procedural Mock Data</h2>
+<p><strong>Feature</strong>: The app feels instantly alive by automatically generating realistic, randomized posts when it first loads.</p>
+<p><strong>How to build it</strong>:</p>
+<ul>
+<li><strong>JavaScript</strong>: Create arrays of mock names and topic-specific phrases. Loop through each topic 50 times, randomly selecting a name, a phrase, and generating a random past timestamp.</li>
+</ul>
+<pre><code>const names = ["Alex", "Jordan", "Taylor"];
+const phrases = ["Just solved a Leetcode hard!", "Looking for a hackathon team."];
+for(let i=0; i&lt;50; i++) {
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+    // Push {author: randomName, text: randomPhrase} to your posts array.
+}</code></pre>
+
+</body>
+</html>
