@@ -13,7 +13,7 @@ let topics = [
 let savedChannels = JSON.parse(localStorage.getItem('nexusCustomChannels') || '[]');
 // Sanitize bad words from previous tests
 const originalLen = savedChannels.length;
-savedChannels = savedChannels.filter(c => !c.name.toLowerCase().includes('maa ki chu'));
+savedChannels = savedChannels.filter(c => !c.name.toLowerCase().includes(''));
 if (savedChannels.length !== originalLen) {
     localStorage.setItem('nexusCustomChannels', JSON.stringify(savedChannels));
 }
